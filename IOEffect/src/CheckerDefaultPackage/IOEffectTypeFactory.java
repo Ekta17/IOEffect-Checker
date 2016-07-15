@@ -1,3 +1,4 @@
+package CheckerDefaultPackage;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
@@ -19,13 +20,13 @@ import org.checkerframework.javacutil.ElementUtils;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.Tree;
 
-import qual.AlwaysNoIO;
-import qual.IO;
-import qual.IOEffect;
-import qual.IOPackage;
-import qual.IOType;
-import qual.NoIOEffect;
-import qual.NoIOType;
+import CheckerDefaultPackage.qual.AlwaysNoIO;
+import CheckerDefaultPackage.qual.IO;
+import CheckerDefaultPackage.qual.IOEffect;
+import CheckerDefaultPackage.qual.IOPackage;
+import CheckerDefaultPackage.qual.IOType;
+import CheckerDefaultPackage.qual.NoIOEffect;
+import CheckerDefaultPackage.qual.NoIOType;
 
 public class IOEffectTypeFactory extends BaseAnnotatedTypeFactory {
 

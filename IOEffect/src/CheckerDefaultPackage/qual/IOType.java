@@ -1,4 +1,4 @@
-package qual;
+package CheckerDefaultPackage.qual;
 
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
@@ -8,5 +8,5 @@ import java.lang.annotation.Target;
 
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
-@Target({ElementType.CONSTRUCTOR, ElementType.METHOD, ElementType.FIELD})
-public @interface NoIOEffect {}
+@Target({ElementType.TYPE})
+public @interface IOType {}

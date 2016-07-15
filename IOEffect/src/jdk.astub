@@ -2,7 +2,7 @@ package java.io;
 import qual.*;
 
 @IOType class PrintStream{
-	@IOEffect void print (boolean b);
+	@NoIOEffect void print (boolean b);
 	@NoIOEffect void print (char c);
 	@IOEffect void print (char[] s); 
 	@NoIOEffect void print (double d);

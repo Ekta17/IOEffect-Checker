@@ -1,4 +1,4 @@
-package qual;
+package CheckerDefaultPackage.qual;
 
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;

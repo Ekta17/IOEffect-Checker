@@ -1,3 +1,4 @@
+package CheckerDefaultPackage;
 
 import java.util.Collections;
 import java.util.Set;
@@ -21,10 +22,10 @@ import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.Tree;
 
-import qual.AlwaysNoIO;
-import qual.IO;
-import qual.IOEffect;
-import qual.NoIOEffect;
+import CheckerDefaultPackage.qual.AlwaysNoIO;
+import CheckerDefaultPackage.qual.IO;
+import CheckerDefaultPackage.qual.IOEffect;
+import CheckerDefaultPackage.qual.NoIOEffect;
 
 public class IOEffectVisitor extends BaseTypeVisitor<IOEffectTypeFactory> {
 

@@ -1,10 +1,11 @@
+package CheckerDefaultPackage;
 import java.lang.annotation.Annotation;
 
 import org.checkerframework.dataflow.qual.Pure;
 import org.checkerframework.dataflow.qual.SideEffectFree;
 
-import qual.IOEffect;
-import qual.NoIOEffect;
+import CheckerDefaultPackage.qual.IOEffect;
+import CheckerDefaultPackage.qual.NoIOEffect;
 
 public final class MainEffect {
     
