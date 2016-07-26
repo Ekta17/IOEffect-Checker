@@ -1,0 +1,4 @@
+import CheckerDefault.qual.*;
+
+package org.swtchart;
+@IOType public class Chart extends org.eclipse.swt.widgets.Composite implements org.eclipse.swt.widgets.Listener {}

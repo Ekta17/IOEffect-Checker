@@ -10,30 +10,7 @@ import org.checkerframework.framework.source.SupportedLintOptions;
 public class IOEffectChecker extends BaseTypeChecker {
 	
 	@Override
-	protected BaseTypeVisitor<?> createSourceVisitor() {
-        /*// Try to reflectively load the visitor.
-        Class<?> checkerClass = this.getClass();
-
-        while (checkerClass != BaseTypeChecker.class) {
-            final String classToLoad =
-                    checkerClass
-                            .getName()
-                            .replace("Checker", "IOEffectVisitor")
-                            .replace("Subchecker", "IOEffectVisitor");
-            BaseTypeVisitor<?> result =
-                    invokeConstructorFor(
-                            classToLoad,
-                            new Class<?>[] {BaseTypeChecker.class},
-                            new Object[] {this});
-            if (result != null) {
-                return result;
-            }
-            checkerClass = checkerClass.getSuperclass();
-        }
-
-        // If a visitor couldn't be loaded reflectively, return the default.
-        return new BaseTypeVisitor<BaseAnnotatedTypeFactory>(this);*/
-		
+	protected BaseTypeVisitor<?> createSourceVisitor() {	
 		return new IOEffectVisitor(this);
     }
 }
