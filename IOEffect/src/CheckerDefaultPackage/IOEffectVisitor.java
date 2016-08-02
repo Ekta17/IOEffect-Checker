@@ -39,7 +39,7 @@ public class IOEffectVisitor extends BaseTypeVisitor<IOEffectTypeFactory> {
         super(checker);
         debugSpew = checker.getLintOption("debugSpew", false);
         if (debugSpew) {
-            System.err.println("Running GuiEffectVisitor");
+            System.err.println("Running IOEffectVisitor");
         }
         effStack = new Stack<MainEffect>();
         currentMethods = new Stack<MethodTree>();
@@ -82,22 +82,15 @@ public class IOEffectVisitor extends BaseTypeVisitor<IOEffectTypeFactory> {
             Tree tree) {
         boolean ret =
                 useType.hasAnnotation(AlwaysNoIO.class)
-                        /*|| atypeFactory.isPolymorphicType(
-                                (TypeElement) declarationType.getUnderlyingType().asElement())*/
                         || (useType.hasAnnotation(IO.class)
                                 && declarationType.hasAnnotation(IO.class));
         if (debugSpew && !ret) {
             System.err.println("use: " + useType);
-            System.err.println("use safe: " + useType.hasAnnotation(AlwaysNoIO.class));
-            //System.err.println("use poly: " + useType.hasAnnotation(PolyUI.class));
-            System.err.println("use ui: " + useType.hasAnnotation(IO.class));
+            System.err.println("use noIO: " + useType.hasAnnotation(AlwaysNoIO.class));
+            System.err.println("use io: " + useType.hasAnnotation(IO.class));
             System.err.println(
-                    "declaration safe: " + declarationType.hasAnnotation(AlwaysNoIO.class));
-            /*System.err.println(
-                    "declaration poly: "
-                            + atypeFactory.isPolymorphicType(
-                                    (TypeElement) declarationType.getUnderlyingType().asElement()));*/
-            System.err.println("declaration ui: " + declarationType.hasAnnotation(IO.class));
+                    "declaration noIO: " + declarationType.hasAnnotation(AlwaysNoIO.class));
+            System.err.println("declaration io: " + declarationType.hasAnnotation(IO.class));
             System.err.println("declaration: " + declarationType);
         }
         return ret;
@@ -118,7 +111,7 @@ public class IOEffectVisitor extends BaseTypeVisitor<IOEffectTypeFactory> {
 
         MethodTree callerTree = TreeUtils.enclosingMethod(getCurrentPath());
         if (callerTree == null) {
-            // Static initializer; let's assume this is safe to have the UI effect
+            // Static initializer; let's assume this is safe to have the IO effect
             if (debugSpew) {
                 System.err.println("No enclosing method: likely static initializer");
             }
@@ -134,28 +127,6 @@ public class IOEffectVisitor extends BaseTypeVisitor<IOEffectTypeFactory> {
         }
 
         MainEffect targetEffect = atypeFactory.getDeclaredEffect(methodElt);
-        // System.err.println("Dispatching method "+node+"on "+node.getMethodSelect());
-       /* if (targetEffect.isPoly()) {
-            AnnotatedTypeMirror srcType = null;
-            assert (node.getMethodSelect().getKind() == Tree.Kind.IDENTIFIER
-                    || node.getMethodSelect().getKind() == Tree.Kind.MEMBER_SELECT);
-            if (node.getMethodSelect().getKind() == Tree.Kind.MEMBER_SELECT) {
-                ExpressionTree src = ((MemberSelectTree) node.getMethodSelect()).getExpression();
-                srcType = atypeFactory.getAnnotatedType(src);
-            } else {
-                // Tree.Kind.IDENTIFIER, e.g. a direct call like "super()"
-                srcType = visitorState.getMethodReceiver();
-            }
-
-            // Instantiate type-polymorphic effects
-            if (srcType.hasAnnotation(AlwaysSafe.class)) {
-                targetEffect = new Effect(SafeEffect.class);
-            } else if (srcType.hasAnnotation(UI.class)) {
-                targetEffect = new Effect(UIEffect.class);
-            }
-            // Poly substitution would be a noop.
-        }
-*/
         MainEffect callerEffect = atypeFactory.getDeclaredEffect(callerElt);
         // Field initializers inside anonymous inner classes show up with a null current-method ---
         // the traversal goes straight from the class to the initializer.
@@ -195,19 +166,11 @@ public class IOEffectVisitor extends BaseTypeVisitor<IOEffectTypeFactory> {
 
         // Check for conflicting (multiple) annotations
         assert (methElt != null);
-        // TypeMirror scratch = methElt.getReturnType();
         AnnotationMirror targetIOP = atypeFactory.getDeclAnnotation(methElt, IOEffect.class);
         AnnotationMirror targetNoIOP = atypeFactory.getDeclAnnotation(methElt, NoIOEffect.class);
-        //AnnotationMirror targetPolyP = atypeFactory.getDeclAnnotation(methElt, PolyUIEffect.class);
+        
         TypeElement targetClassElt = (TypeElement) methElt.getEnclosingElement();
 
-       /* if (targetUIP != null && (targetSafeP != null || targetPolyP != null)
-                || targetSafeP != null && targetPolyP != null) {
-            checker.report(Result.failure("annotations.conflicts"), node);
-        }
-        if (targetPolyP != null && !atypeFactory.isPolymorphicType(targetClassElt)) {
-            checker.report(Result.failure("polymorphism.invalid"), node);
-        }*/
         if (targetIOP != null && atypeFactory.isIOType(targetClassElt)) {
             checker.report(Result.warning("effects.redundant.iotype"), node);
         }
@@ -218,11 +181,6 @@ public class IOEffectVisitor extends BaseTypeVisitor<IOEffectTypeFactory> {
                 atypeFactory.findInheritedEffectRange(
                         ((TypeElement) methElt.getEnclosingElement()), methElt, true, node);
         if (targetIOP == null && targetNoIOP == null /*&& targetPolyP == null*/) {
-            // implicitly annotate this method with the LUB of the effects of the methods it overrides
-            // atypeFactory.fromElement(methElt).addAnnotation(range != null ? range.min.getAnnot() : (isUIType(((TypeElement)methElt.getEnclosingElement())) ? UI.class : AlwaysSafe.class));
-            // TODO: This line does nothing! AnnotatedTypeMirror.addAnnotation
-            // silently ignores non-qualifier annotations!
-            // System.err.println("ERROR: TREE ANNOTATOR SHOULD HAVE ADDED EXPLICIT ANNOTATION! ("+node.getName()+")");
             atypeFactory
                     .fromElement(methElt)
                     .addAnnotation(atypeFactory.getDeclaredEffect(methElt).getAnnot());
@@ -231,10 +189,6 @@ public class IOEffectVisitor extends BaseTypeVisitor<IOEffectTypeFactory> {
         // We hang onto the current method here for ease.  We back up the old
         // current method because this code is reentrant when we traverse methods of an inner class
         currentMethods.push(node);
-        // effStack.push(targetSafeP != null ? new Effect(AlwaysSafe.class) :
-        //                (targetPolyP != null ? new Effect(PolyUI.class) :
-        //                   (targetUIP != null ? new Effect(UI.class) :
-        //                      (range != null ? range.min : (isUIType(((TypeElement)methElt.getEnclosingElement())) ? new Effect(UI.class) : new Effect(AlwaysSafe.class))))));
         effStack.push(atypeFactory.getDeclaredEffect(methElt));
         if (debugSpew) {
             System.err.println(
@@ -260,7 +214,7 @@ public class IOEffectVisitor extends BaseTypeVisitor<IOEffectTypeFactory> {
         // AnnotatedTypeMirror.AnnotatedDeclaredType atype = atypeFactory.fromClass(node);
 
         // Push a null method and IO effect onto the stack for static field initialization
-        // TODO: Figure out if this is safe! For static data, almost certainly,
+        // TODO: Figure out if this is noIO! For static data, almost certainly,
         // but for statically initialized instance fields, I'm assuming those
         // are implicitly moved into each constructor, which must then be @IO
         currentMethods.push(null);

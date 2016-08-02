@@ -73,14 +73,14 @@ public class IOEffectTypeFactory extends BaseAnnotatedTypeFactory {
     
     public boolean isIOType(TypeElement cls) {
         if (debugSpew) {
-            System.err.println(" isUIType(" + cls + ")");
+            System.err.println(" isIOType(" + cls + ")");
         }
         boolean targetClassIOP = fromElement(cls).hasAnnotation(IO.class);
         AnnotationMirror targetClassIOTypeP = getDeclAnnotation(cls, IOType.class);
         AnnotationMirror targetClassNoIOTypeP = getDeclAnnotation(cls, NoIOType.class);
 
         if (targetClassNoIOTypeP != null) {
-            return false; // explicitly marked not a UI type
+            return false; // explicitly marked not a IO type
         }
 
         boolean hasIOTypeDirectly = (targetClassIOP || targetClassIOTypeP != null);
@@ -96,10 +96,6 @@ public class IOEffectTypeFactory extends BaseAnnotatedTypeFactory {
             return false;
         }
 
-        // We don't check polymorphic annos so we can make a couple methods of
-        // an @UIType polymorphic explicitly
-        // AnnotationMirror targetClassPolyP = getDeclAnnotation(cls, PolyUI.class);
-        // AnnotationMirror targetClassPolyTypeP = getDeclAnnotation(cls, PolyUIType.class);
         boolean targetClassNoIOP = fromElement(cls).hasAnnotation(AlwaysNoIO.class);
         if (targetClassNoIOP) {
             return false; // explicitly annotated otherwise
@@ -114,7 +110,7 @@ public class IOEffectTypeFactory extends BaseAnnotatedTypeFactory {
             }
             if (getDeclAnnotation(packageP, IOPackage.class) != null) {
                 if (debugSpew) {
-                    System.err.println("Package " + packageP + " is annotated @UIPackage");
+                    System.err.println("Package " + packageP + " is annotated @IOPackage");
                 }
                 return true;
             }
@@ -129,11 +125,10 @@ public class IOEffectTypeFactory extends BaseAnnotatedTypeFactory {
     
     public MainEffect getDeclaredEffect(ExecutableElement methodElt) {
         if (debugSpew) {
-            System.err.println("begin mayHaveUIEffect(" + methodElt + ")");
+            System.err.println("begin mayHaveIOEffect(" + methodElt + ")");
         }
         AnnotationMirror targetIOP = getDeclAnnotation(methodElt, IOEffect.class);
         AnnotationMirror targetNoIOP = getDeclAnnotation(methodElt, NoIOEffect.class);
-        //AnnotationMirror targetPolyP = getDeclAnnotation(methodElt, PolyUIEffect.class);
         TypeElement targetClassElt = (TypeElement) methodElt.getEnclosingElement();
 
         if (debugSpew) {
@@ -151,18 +146,13 @@ public class IOEffectTypeFactory extends BaseAnnotatedTypeFactory {
                 System.err.println("Method marked @IOEffect");
             }
             return new MainEffect(IOEffect.class);
-        } /*else if (targetPolyP != null) {
-            if (debugSpew) {
-                System.err.println("Method marked @PolyUIEffect");
-            }
-            return new Effect(PolyUIEffect.class);
-        }*/
+        }
 
         // The method is not explicitly annotated, so check class and package annotations,
         // and supertype effects if in an anonymous inner class
 
         if (isIOType(targetClassElt)) {
-            // Already checked, no explicit @SafeEffect annotation
+            // Already checked, no explicit @NoIOEffect annotation
             return new MainEffect(IOEffect.class);
         }
 
@@ -175,19 +165,7 @@ public class IOEffectTypeFactory extends BaseAnnotatedTypeFactory {
             //DeclaredType directSuper = (DeclaredType) targetClassElt.getSuperclass();
             //TypeElement superElt = (TypeElement) directSuper.asElement();
             // Anonymous subtypes of polymorphic classes other than object can't inherit
-            /*if (getDeclAnnotation(superElt, PolyUIType.class) != null
-                    && !TypesUtils.isObject(directSuper)) {
-                canInheritParentEffects = false;
-            } else {
-                for (TypeMirror ifaceM : targetClassElt.getInterfaces()) {
-                    DeclaredType iface = (DeclaredType) ifaceM;
-                    TypeElement ifaceElt = (TypeElement) iface.asElement();
-                    if (getDeclAnnotation(ifaceElt, PolyUIType.class) != null) {
-                        canInheritParentEffects = false;
-                    }
-                }
-            }
-*/
+           
             if (canInheritParentEffects) {
                 MainEffect.EffectRange r = findInheritedEffectRange(targetClassElt, methodElt);
                 return (r != null ? MainEffect.min(r.min, r.max) : new MainEffect(NoIOEffect.class));
@@ -210,16 +188,14 @@ public class IOEffectTypeFactory extends BaseAnnotatedTypeFactory {
         assert (declaringType != null);
         ExecutableElement io_override = null;
         ExecutableElement noIO_override = null;
-        //ExecutableElement poly_override = null;
 
         // We must account for explicit annotation, type declaration annotations, and package annotations
         boolean isIO =
                 (getDeclAnnotation(overridingMethod, IOEffect.class) != null
                                 || isIOType(declaringType))
                         && getDeclAnnotation(overridingMethod, NoIOEffect.class) == null;
-      //  boolean isPolyUI = getDeclAnnotation(overridingMethod, PolyUIEffect.class) != null;
 
-        // TODO: We must account for @IO and @AlwaysSafe annotations for extends
+        // TODO: We must account for @IO and @AlwaysNoIO annotations for extends
         // and implements clauses, and do the proper substitution of @Poly effects and quals!
         // List<? extends TypeMirror> interfaces = declaringType.getInterfaces();
         TypeMirror superclass = declaringType.getSuperclass();
@@ -229,7 +205,7 @@ public class IOEffectTypeFactory extends BaseAnnotatedTypeFactory {
             	MainEffect eff = getDeclaredEffect(overrides);
                 assert (eff != null);
                 if (eff.isNoIO()) {
-                    // found a safe override
+                    // found a noIO override
                     noIO_override = overrides;
                     if (isIO && issueConflictWarning) {
                         checker.report(
@@ -241,37 +217,11 @@ public class IOEffectTypeFactory extends BaseAnnotatedTypeFactory {
                                         superclass),
                                 errorNode);
                     }
-                    /*if (isPolyUI && issueConflictWarning) {
-                        checker.report(
-                                Result.failure(
-                                        "override.effect.invalid.polymorphic",
-                                        overridingMethod,
-                                        declaringType,
-                                        safe_override,
-                                        superclass),
-                                errorNode);
-                    }*/
                 } else if (eff.isIO()) {
                     // found a io override
                     io_override = overrides;
-                } /*else {
-                    assert (eff.isPoly());
-                    poly_override = overrides;
-                    // TODO: Is this right? is the supertype covered by the
-                    // directSuperTypes() method all I need? Or should I be
-                    // using that utility method that returns a set of
-                    // annodecl-method pairs given a method that overrides stuff
-                    // if (isIO && issueConflictWarning) {
-                    //    AnnotatedTypeMirror.AnnotatedDeclaredType supdecl = fromElement((TypeElement)(((DeclaredType)superclass).asElement()));//((DeclaredType)superclass).asElement());
-                    //    // Need to special case an anonymous class with @UI on the decl, because "new @UI Runnable {...}" parses as @UI on an anon class decl extending Runnable
-                    //    boolean isAnonInstantiation = TypesUtils.isAnonymousType(ElementUtils.getType(declaringType)) && getDeclAnnotation(declaringType, UI.class) != null;
-                    //    if (!isAnonInstantiation && !hasAnnotationByName(supdecl, UI.class)) {
-                    //        checker.report(Result.failure("override.effect.invalid", "non-UI instantiation of "+supdecl), errorNode);
-                    //        If uncommenting this, change the above line to match other calls of Result.failure("override.effect.invalid", ...)
-                    //    }
-                    //}
-                }*/
-            }
+                } 
+                }
             DeclaredType decl = (DeclaredType) superclass;
             superclass = ((TypeElement) decl.asElement()).getSuperclass();
         }
@@ -283,7 +233,7 @@ public class IOEffectTypeFactory extends BaseAnnotatedTypeFactory {
             if (overrides != null) {
                 MainEffect eff = getDeclaredEffect(overrides);
                 if (eff.isNoIO()) {
-                    // found a safe override
+                    // found a noIO override
                     noIO_override = overrides;
                     if (isIO && issueConflictWarning) {
                         checker.report(
@@ -295,43 +245,11 @@ public class IOEffectTypeFactory extends BaseAnnotatedTypeFactory {
                                         ty),
                                 errorNode);
                     }
-                   /* if (isPolyUI && issueConflictWarning) {
-                        checker.report(
-                                Result.failure(
-                                        "override.effect.invalid.polymorphic",
-                                        overridingMethod,
-                                        declaringType,
-                                        safe_override,
-                                        ty),
-                                errorNode);
-                    }*/
-                } else if (eff.isIO()) {
+                   } else if (eff.isIO()) {
                     // found a io override
                     io_override = overrides;
-                }/* else {
-                    assert (eff.isPoly());
-                    poly_override = overrides;
-                    if (isIO && issueConflictWarning) {
-                        AnnotatedTypeMirror.AnnotatedDeclaredType supdecl = ty;
-                        // Need to special case an anonymous class with @UI on
-                        // the decl, because "new @UI Runnable {...}" parses as
-                        // @UI on an anon class decl extending Runnable
-                        boolean isAnonInstantiation =
-                                isAnonymousType(declaringType)
-                                        && fromElement(declaringType).hasAnnotation(UI.class);
-                        if (!isAnonInstantiation && !supdecl.hasAnnotation(UI.class)) {
-                            checker.report(
-                                    Result.failure(
-                                            "override.effect.invalid.nonio",
-                                            overridingMethod,
-                                            declaringType,
-                                            poly_override,
-                                            supdecl),
-                                    errorNode);
-                        }
-                    }
-                }*/
-            }
+                }
+               }
         }
 
         // We don't need to issue warnings for inheriting from poly and a concrete effect.
@@ -354,25 +272,12 @@ public class IOEffectTypeFactory extends BaseAnnotatedTypeFactory {
         
         if(noIO_override!=null)
         	min=new MainEffect(NoIOEffect.class);
-        
-        /*MainEffect min =
-                (noIO_override != null
-                        ? new MaiffnEffect(NoIOEffect.class)
-                        : (poly_override != null
-                                ? new MainEffect(PolyUIEffect.class)
-                                : (ui_override != null ? new MainEffect(UIEffect.class) : null)));*/
-        
+              
         MainEffect max=null;
         
         if(io_override!=null)
         	max=new MainEffect(IOEffect.class);
         
-        /*MainEffect max =
-                (ui_override != null
-                        ? new MainEffect(UIEffect.class)
-                        : (poly_override != null
-                                ? new MainEffect(PolyUIEffect.class)
-                                : (safe_override != null ? new MainEffect(SafeEffect.class) : null)));*/
         if (debugSpew) {
             System.err.println(
                     "Found "
@@ -412,14 +317,9 @@ public class IOEffectTypeFactory extends BaseAnnotatedTypeFactory {
             return IOEffectTypeFactory.this.getDeclAnnotation(methElt, NoIOEffect.class) != null;
         }
 
-        /*public boolean hasExplicitPolyUIEffect(ExecutableElement methElt) {
-            return IOEffectTypeFactory.this.getDeclAnnotation(methElt, PolyUIEffect.class) != null;
-        }*/
-
         public boolean hasExplicitEffect(ExecutableElement methElt) {
             return hasExplicitIOEffect(methElt)
                     || hasExplicitNoIOEffect(methElt);
-                    /*|| hasExplicitPolyUIEffect(methElt);*/
         }
 
         @Override
@@ -442,10 +342,7 @@ public class IOEffectTypeFactory extends BaseAnnotatedTypeFactory {
             if (receiverType != null
                     && !receiverType.isAnnotatedInHierarchy(
                             AnnotationUtils.fromClass(elements, IO.class))) {
-                receiverType.addAnnotation(
-                        /*isPolymorphicType(cls)
-                                ? PolyUI.class
-                                : */fromElement(cls).hasAnnotation(IO.class)
+                receiverType.addAnnotation(fromElement(cls).hasAnnotation(IO.class)
                                         ? IO.class
                                         : AlwaysNoIO.class);
             }
