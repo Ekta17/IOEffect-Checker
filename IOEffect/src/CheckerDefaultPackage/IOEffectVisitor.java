@@ -20,6 +20,7 @@ import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
+import com.sun.source.tree.NewClassTree;
 import com.sun.source.tree.Tree;
 
 import CheckerDefaultPackage.qual.AlwaysNoIO;
@@ -96,7 +97,7 @@ public class IOEffectVisitor extends BaseTypeVisitor<IOEffectTypeFactory> {
         return ret;
     }
 
- // Check that the invoked effect is <= permitted effect (effStack.peek())
+    // Check that the invoked effect is <= permitted effect (effStack.peek())
     @Override
     public Void visitMethodInvocation(MethodInvocationTree node, Void p) {
         if (debugSpew) {
@@ -104,7 +105,7 @@ public class IOEffectVisitor extends BaseTypeVisitor<IOEffectTypeFactory> {
         }
 
         // Target method annotations
-        ExecutableElement methodElt = TreeUtils.elementFromUse(node);
+        ExecutableElement methodElt = TreeUtils.elementFromUse(node);//ExecutableElement: This gets the inherited methods from the base class of the method being analyzed
         if (debugSpew) {
             System.err.println("methodElt found");
         }
@@ -121,7 +122,7 @@ public class IOEffectVisitor extends BaseTypeVisitor<IOEffectTypeFactory> {
             System.err.println("callerTree found");
         }
 
-        ExecutableElement callerElt = TreeUtils.elementFromDeclaration(callerTree);
+        ExecutableElement callerElt = TreeUtils.elementFromDeclaration(callerTree);// What annotations has been applied
         if (debugSpew) {
             System.err.println("callerElt found");
         }
@@ -206,7 +207,7 @@ public class IOEffectVisitor extends BaseTypeVisitor<IOEffectTypeFactory> {
         //TODO: Same effect checks as for methods
         return super.visitMemberSelect(node, p);
     }
-    
+    	
     @Override
     public Void visitClass(ClassTree node, Void p) {
         // TODO: Check constraints on this class decl vs. parent class decl., and interfaces
@@ -217,11 +218,60 @@ public class IOEffectVisitor extends BaseTypeVisitor<IOEffectTypeFactory> {
         // TODO: Figure out if this is noIO! For static data, almost certainly,
         // but for statically initialized instance fields, I'm assuming those
         // are implicitly moved into each constructor, which must then be @IO
-        currentMethods.push(null);
+        currentMethods.push(null);// static int x=dosomething();
         effStack.push(new MainEffect(IOEffect.class));
         Void ret = super.visitClass(node, p);
         currentMethods.pop();
         effStack.pop();
         return ret;
+    }
+    
+    @Override
+    public Void visitNewClass(NewClassTree node, Void p) {
+        if (debugSpew) {
+            System.err.println("For constructor " + node + " in " + currentMethods.peek().getName());
+        }
+
+        // Target method annotations
+        ExecutableElement methodElt = TreeUtils.elementFromUse(node);//ExecutableElement: This gets the inherited methods from the base class of the method being analyzed
+        if (debugSpew) {
+            System.err.println("methodElt found");
+        }
+
+        MethodTree callerTree = TreeUtils.enclosingMethod(getCurrentPath());
+        if (callerTree == null) {
+            // Static initializer; let's assume this is safe to have the IO effect
+            if (debugSpew) {
+                System.err.println("No enclosing method: likely static initializer");
+            }
+            return super.visitNewClass(node, p);
+        }
+        if (debugSpew) {
+            System.err.println("callerTree found");
+        }
+
+        ExecutableElement callerElt = TreeUtils.elementFromDeclaration(callerTree);// What annotations has been applied
+        if (debugSpew) {
+            System.err.println("callerElt found");
+        }
+
+        MainEffect targetEffect = atypeFactory.getDeclaredEffect(methodElt);
+        MainEffect callerEffect = atypeFactory.getDeclaredEffect(callerElt);
+        // Field initializers inside anonymous inner classes show up with a null current-method ---
+        // the traversal goes straight from the class to the initializer.
+        assert (currentMethods.peek() == null || callerEffect.equals(effStack.peek()));
+
+        if (!MainEffect.LE(targetEffect, callerEffect)) {
+            checker.report(Result.failure("constructor.call.invalid", targetEffect, callerEffect), node);
+            if (debugSpew) {
+                System.err.println("Issuing error for node: " + node);
+            }
+        }
+        if (debugSpew) {
+            System.err.println(
+                    "Successfully finished main non-recursive checkinv of invocation " + node);
+        }
+
+        return super.visitNewClass(node, p);
     }
 }
