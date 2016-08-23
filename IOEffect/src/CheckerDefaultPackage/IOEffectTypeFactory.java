@@ -53,6 +53,7 @@ public class IOEffectTypeFactory extends BaseAnnotatedTypeFactory {
             }
 
             for (Element e : elem.getEnclosedElements()) {
+            	//System.out.println("element e = "+e);
                 if (debugSpew) {
                     System.err.println("Considering element " + e);
                 }
@@ -189,6 +190,8 @@ public class IOEffectTypeFactory extends BaseAnnotatedTypeFactory {
         ExecutableElement io_override = null;
         ExecutableElement noIO_override = null;
 
+       // System.out.println("declaringType = "+declaringType/*+"\t overridingMethod="+overridingMethod+"\t errorNode="+errorNode*/);
+        
         // We must account for explicit annotation, type declaration annotations, and package annotations
         boolean isIO =
                 (getDeclAnnotation(overridingMethod, IOEffect.class) != null
@@ -199,10 +202,13 @@ public class IOEffectTypeFactory extends BaseAnnotatedTypeFactory {
         // and implements clauses, and do the proper substitution of @Poly effects and quals!
         // List<? extends TypeMirror> interfaces = declaringType.getInterfaces();
         TypeMirror superclass = declaringType.getSuperclass();
+        //System.out.println("SuperClass = "+superclass);
         while (superclass != null && superclass.getKind() != TypeKind.NONE) {
             ExecutableElement overrides = findJavaOverride(overridingMethod, superclass);
+            System.out.println("overrides 1st loop = "+overrides);
             if (overrides != null) {
             	MainEffect eff = getDeclaredEffect(overrides);
+            	//System.out.println("Overriden effect = "+eff);
                 assert (eff != null);
                 if (eff.isNoIO()) {
                     // found a noIO override
@@ -227,9 +233,11 @@ public class IOEffectTypeFactory extends BaseAnnotatedTypeFactory {
         }
 
         AnnotatedTypeMirror.AnnotatedDeclaredType annoDecl = fromElement(declaringType);
+        System.out.println("annoDEcl = "+annoDecl);
         for (AnnotatedTypeMirror.AnnotatedDeclaredType ty : annoDecl.directSuperTypes()) {
             ExecutableElement overrides =
                     findJavaOverride(overridingMethod, ty.getUnderlyingType());
+            System.out.println("overrides in 2nd loop = "+overrides);
             if (overrides != null) {
                 MainEffect eff = getDeclaredEffect(overrides);
                 if (eff.isNoIO()) {

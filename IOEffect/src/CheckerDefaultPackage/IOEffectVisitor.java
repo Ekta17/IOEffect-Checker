@@ -73,7 +73,7 @@ public class IOEffectVisitor extends BaseTypeVisitor<IOEffectTypeFactory> {
 
     @Override
     protected Set<? extends AnnotationMirror> getExceptionParameterLowerBoundAnnotations() {
-        return Collections.singleton(AnnotationUtils.fromClass(elements, AlwaysNoIO.class));
+    	return Collections.singleton(AnnotationUtils.fromClass(elements, AlwaysNoIO.class));
     }
     
     @Override
@@ -160,17 +160,24 @@ public class IOEffectVisitor extends BaseTypeVisitor<IOEffectTypeFactory> {
         //       always have to be @IO... Need to write down |- t for this system!  And the judgments for method overrides
         //       and inheritance!  Those are actually the hardest part of the system.
 
+    	//System.out.println("here in this method********************************************");
         ExecutableElement methElt = TreeUtils.elementFromDeclaration(node);
         if (debugSpew) {
             System.err.println("\nVisiting method " + methElt);
         }
 
+       // System.out.println("----------------------------------------------------------------> method Elt : "+ methElt);
+        
         // Check for conflicting (multiple) annotations
         assert (methElt != null);
         AnnotationMirror targetIOP = atypeFactory.getDeclAnnotation(methElt, IOEffect.class);
-        AnnotationMirror targetNoIOP = atypeFactory.getDeclAnnotation(methElt, NoIOEffect.class);
+        //System.out.println("----------------------------------------------------------------> Method ELT :: targetIOP : "+ methElt +" :: "+targetIOP);
         
-        TypeElement targetClassElt = (TypeElement) methElt.getEnclosingElement();
+        AnnotationMirror targetNoIOP = atypeFactory.getDeclAnnotation(methElt, NoIOEffect.class);
+        //System.out.println("----------------------------------------------------------------> Method ELT :: targetNoIOP : "+ methElt +" :: "+ targetNoIOP);
+        
+        
+        TypeElement targetClassElt = (TypeElement) methElt.getEnclosingElement();//Get the annotation on the class
 
         if (targetIOP != null && atypeFactory.isIOType(targetClassElt)) {
             checker.report(Result.warning("effects.redundant.iotype"), node);
