@@ -1,8 +1,0 @@
-import CheckerDefault.qual.*;
-
-package org.osgi.framework;
-public interface BundleActivator {
-    // These methods are present on all plugins, IO or not
-    @PolyIOEffect void start(BundleContext context);
-    @PolyIOEffect void stop(BundleContext context);
-}

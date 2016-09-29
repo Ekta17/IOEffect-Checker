@@ -53,8 +53,7 @@ public class IOEffectTypeFactory extends BaseAnnotatedTypeFactory {
             }
 
             for (Element e : elem.getEnclosedElements()) {
-            	//System.out.println("element e = "+e);
-                if (debugSpew) {
+            	if (debugSpew) {
                     System.err.println("Considering element " + e);
                 }
                 if (e.getKind() == ElementKind.METHOD || e.getKind() == ElementKind.CONSTRUCTOR) {
@@ -81,7 +80,7 @@ public class IOEffectTypeFactory extends BaseAnnotatedTypeFactory {
         AnnotationMirror targetClassNoIOTypeP = getDeclAnnotation(cls, NoIOType.class);
 
         if (targetClassNoIOTypeP != null) {
-            return false; // explicitly marked not a IO type
+            return false; 
         }
 
         boolean hasIOTypeDirectly = (targetClassIOP || targetClassIOTypeP != null);
@@ -90,19 +89,15 @@ public class IOEffectTypeFactory extends BaseAnnotatedTypeFactory {
             return true;
         }
 
-        // Anon inner classes should not inherit the package annotation, since
-        // they're so often used for closures to run async on background
-        // threads.
         if (isAnonymousType(cls)) {
             return false;
         }
 
         boolean targetClassNoIOP = fromElement(cls).hasAnnotation(AlwaysNoIO.class);
         if (targetClassNoIOP) {
-            return false; // explicitly annotated otherwise
+            return false;
         }
 
-        // Look for the package
         Element packageP = ElementUtils.enclosingPackage(cls);
 
         if (packageP != null) {
@@ -136,7 +131,6 @@ public class IOEffectTypeFactory extends BaseAnnotatedTypeFactory {
             System.err.println("targetClassElt found");
         }
 
-        // Short-circuit if the method is explicitly annotated
         if (targetNoIOP != null) {
             if (debugSpew) {
                 System.err.println("Method marked @NoIOEffect");
@@ -149,24 +143,15 @@ public class IOEffectTypeFactory extends BaseAnnotatedTypeFactory {
             return new MainEffect(IOEffect.class);
         }
 
-        // The method is not explicitly annotated, so check class and package annotations,
-        // and supertype effects if in an anonymous inner class
 
         if (isIOType(targetClassElt)) {
-            // Already checked, no explicit @NoIOEffect annotation
             return new MainEffect(IOEffect.class);
         }
 
-        // Anonymous inner types should just get the effect of the parent by
-        // default, rather than annotating every instance. Unless it's
-        // implementing a polymorphic supertype, in which case we still want the
-        // developer to be explicit.
+
         if (isAnonymousType(targetClassElt)) {
-            boolean canInheritParentEffects = true; // Refine this for polymorphic parents
-            //DeclaredType directSuper = (DeclaredType) targetClassElt.getSuperclass();
-            //TypeElement superElt = (TypeElement) directSuper.asElement();
-            // Anonymous subtypes of polymorphic classes other than object can't inherit
-           
+            boolean canInheritParentEffects = true; 
+            
             if (canInheritParentEffects) {
                 MainEffect.EffectRange r = findInheritedEffectRange(targetClassElt, methodElt);
                 return (r != null ? MainEffect.min(r.min, r.max) : new MainEffect(NoIOEffect.class));
@@ -190,29 +175,25 @@ public class IOEffectTypeFactory extends BaseAnnotatedTypeFactory {
         ExecutableElement io_override = null;
         ExecutableElement noIO_override = null;
 
-       // System.out.println("declaringType = "+declaringType/*+"\t overridingMethod="+overridingMethod+"\t errorNode="+errorNode*/);
-        
-        // We must account for explicit annotation, type declaration annotations, and package annotations
+
         boolean isIO =
                 (getDeclAnnotation(overridingMethod, IOEffect.class) != null
                                 || isIOType(declaringType))
                         && getDeclAnnotation(overridingMethod, NoIOEffect.class) == null;
 
-        // TODO: We must account for @IO and @AlwaysNoIO annotations for extends
-        // and implements clauses, and do the proper substitution of @Poly effects and quals!
-        // List<? extends TypeMirror> interfaces = declaringType.getInterfaces();
+
         TypeMirror superclass = declaringType.getSuperclass();
-        //System.out.println("SuperClass = "+superclass);
+
         while (superclass != null && superclass.getKind() != TypeKind.NONE) {
             ExecutableElement overrides = findJavaOverride(overridingMethod, superclass);
-            System.out.println("overrides 1st loop = "+overrides);
+
             if (overrides != null) {
             	MainEffect eff = getDeclaredEffect(overrides);
-            	//System.out.println("Overriden effect = "+eff);
-                assert (eff != null);
+
+            	assert (eff != null);
                 if (eff.isNoIO()) {
-                    // found a noIO override
-                    noIO_override = overrides;
+
+                	noIO_override = overrides;
                     if (isIO && issueConflictWarning) {
                         checker.report(
                                 Result.failure(
@@ -224,8 +205,8 @@ public class IOEffectTypeFactory extends BaseAnnotatedTypeFactory {
                                 errorNode);
                     }
                 } else if (eff.isIO()) {
-                    // found a io override
-                    io_override = overrides;
+
+                	io_override = overrides;
                 } 
                 }
             DeclaredType decl = (DeclaredType) superclass;
@@ -233,15 +214,14 @@ public class IOEffectTypeFactory extends BaseAnnotatedTypeFactory {
         }
 
         AnnotatedTypeMirror.AnnotatedDeclaredType annoDecl = fromElement(declaringType);
-        System.out.println("annoDEcl = "+annoDecl);
+        
         for (AnnotatedTypeMirror.AnnotatedDeclaredType ty : annoDecl.directSuperTypes()) {
             ExecutableElement overrides =
                     findJavaOverride(overridingMethod, ty.getUnderlyingType());
-            System.out.println("overrides in 2nd loop = "+overrides);
+            
             if (overrides != null) {
                 MainEffect eff = getDeclaredEffect(overrides);
                 if (eff.isNoIO()) {
-                    // found a noIO override
                     noIO_override = overrides;
                     if (isIO && issueConflictWarning) {
                         checker.report(
@@ -254,17 +234,16 @@ public class IOEffectTypeFactory extends BaseAnnotatedTypeFactory {
                                 errorNode);
                     }
                    } else if (eff.isIO()) {
-                    // found a io override
+
                     io_override = overrides;
                 }
                }
         }
 
-        // We don't need to issue warnings for inheriting from poly and a concrete effect.
+
         if (io_override != null && noIO_override != null && issueConflictWarning) {
-            // There may be more than two parent methods, but for now it's
-            // enough to know there are at least 2 in conflict
-            checker.report(
+
+        	checker.report(
                     Result.warning(
                             "override.effect.warning.inheritance",
                             overridingMethod,
@@ -337,15 +316,11 @@ public class IOEffectTypeFactory extends BaseAnnotatedTypeFactory {
             MainEffect e = getDeclaredEffect(methType.getElement());
             TypeElement cls = (TypeElement) methType.getElement().getEnclosingElement();
 
-            // STEP 1: Get the method effect annotation
+
             if (!hasExplicitEffect(methType.getElement())) {
-                // TODO: This line does nothing!
-                // AnnotatedTypeMirror.addAnnotation silently ignores non-qualifier annotations!
-                // We should be digging up the /declaration/ of the method, and annotating that.
                 methType.addAnnotation(e.getAnnot());
             }
 
-            // STEP 2: Fix up the method receiver annotation
             AnnotatedTypeMirror.AnnotatedDeclaredType receiverType = methType.getReceiverType();
             if (receiverType != null
                     && !receiverType.isAnnotatedInHierarchy(
